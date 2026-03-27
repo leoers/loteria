@@ -175,7 +175,7 @@ const LotofacilProfessional = () => {
       </div>
 
       <div className="flex md:hidden bg-white p-1 rounded-2xl gap-1 w-full box-border">
-        {['Estatística', 'Configurar', 'Revisar'].map((label, i) => (
+        {['Estatística', 'Jogar'].map((label, i) => (
           <button key={i} onClick={() => setActiveStep(i+1)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase ${activeStep === i+1 ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>
             {label}
           </button>
