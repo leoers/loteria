@@ -125,7 +125,7 @@ const LotofacilProfessional = () => {
     if (savedHistory) try { setHistory(JSON.parse(savedHistory)); } catch (e) { console.error(e); }
     if (savedPlayed) try { setPlayedLotes(JSON.parse(savedPlayed)); } catch (e) { console.error(e); }
     
-    fetch('https://loteriascaika-api.herokuapp.com/api/lotofacil')
+    fetch('https://loteriascaixa-api.herokuapp.com/api/lotofacil')
       .then(res => res.json())
       .then(data => setLastDraws(Array.isArray(data) ? data : []))
       .catch(console.error)
