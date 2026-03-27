@@ -33,6 +33,12 @@ const LotofacilProfessional = () => {
 
   const allNumbers = Array.from({ length: 25 }, (_, i) => i + 1);
 
+  // --- NOVO FILTRO PARA O CONFERIDOR ---
+  // Filtra o histórico para mostrar no CheckerPanel apenas o que foi favoritado (marcado como jogado)
+  const playedHistoryOnly = useMemo(() => {
+    return history.filter(lote => playedLotes.includes(lote.id));
+  }, [history, playedLotes]);
+
   const generateGameLogic = (dezenas: number, forceRandomizeFromFavorites: boolean) => {
     const poolParaCompletar = allNumbers.filter(n => !excluded.includes(n) && !favorites.includes(n));
     if (favorites.length > dezenas || (forceRandomizeFromFavorites && favorites.length > 0)) {
@@ -164,7 +170,6 @@ const LotofacilProfessional = () => {
   if (!mounted) return null;
 
   return (
-    /* AJUSTE 1: Adicionado w-full e overflow-x-hidden para travar o eixo horizontal */
     <div className="p-4 w-full max-w-[1900px] mx-auto bg-gray-50 min-h-screen flex flex-col gap-6 overflow-x-hidden box-border">
       
       <div className="w-full flex flex-col gap-3">
@@ -182,7 +187,6 @@ const LotofacilProfessional = () => {
         ))}
       </div>
 
-      {/* AJUSTE 2: Garantir que o grid não ultrapasse a largura do pai */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start w-full">
         
         <div className={`${activeStep === 1 ? 'flex' : 'hidden md:flex'} flex-col gap-4 w-full overflow-hidden`}>
@@ -197,7 +201,6 @@ const LotofacilProfessional = () => {
 
         <div className={`${activeStep === 3 ? 'block' : 'hidden md:block'} w-full overflow-hidden`}>
           {draftGames.length > 0 ? (
-            /* AJUSTE 3: W-full e Padding para evitar que o conteúdo encoste na borda do celular */
             <div className="bg-slate-900 p-5 md:p-6 rounded-[32px] flex flex-col max-h-[calc(100vh-250px)] w-full box-border">
                <div className="flex justify-between items-center mb-4">
                 <h3 className="text-[11px] font-black text-blue-400 uppercase italic">Lote em Revisão</h3>
@@ -215,7 +218,6 @@ const LotofacilProfessional = () => {
                         <button onClick={() => removeSingleDraft(game.id)} className="text-[9px] font-black text-red-500 uppercase">X</button>
                       </div>
                     </div>
-                    {/* AJUSTE 4: gap-1.5 no mobile para não estourar a largura das 5 colunas */}
                     <div className="flex flex-wrap gap-1 md:gap-1.5 justify-start">
                       {game.numbers.map(n => <span key={n} className="w-8 h-8 md:w-9 md:h-9 bg-white text-slate-900 rounded-lg md:rounded-xl flex items-center justify-center text-[11px] md:text-[12px] font-black">{String(n).padStart(2, '0')}</span>)}
                     </div>
@@ -228,7 +230,10 @@ const LotofacilProfessional = () => {
         </div>
 
         <div className="hidden md:flex flex-col gap-4 max-h-[calc(100vh-250px)] overflow-y-auto w-full">
-          <CheckerPanel history={history} officialDraw={officialNumbers} playedLotes={playedLotes} />
+          {/* AJUSTE: CheckerPanel agora recebe apenas os favoritados (playedHistoryOnly) */}
+          <CheckerPanel history={playedHistoryOnly} officialDraw={officialNumbers} playedLotes={playedLotes} />
+          
+          {/* GameHistory continua mostrando tudo (history completo) */}
           <GameHistory history={history} setHistory={setHistory} draftGames={draftGames} playedLotes={playedLotes} togglePlayed={(id) => setPlayedLotes(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} onDelete={(id) => setHistory(prev => prev.filter(g => g.id !== id))} onDownloadPDF={downloadPDF} />
         </div>
       </div>
@@ -237,7 +242,6 @@ const LotofacilProfessional = () => {
         <IntelligencePanel lastDraws={lastDraws} onApplySuggestion={handleApplyAISuggestion} />
       </div>
 
-      {/* AJUSTE 5: Modal mobile garantido sem scroll lateral */}
       {showQuickCheck && (
         <div className="fixed inset-0 z-[100] bg-slate-900/95 p-4 flex flex-col overflow-x-hidden box-border">
           <div className="flex justify-between items-center mb-6">
@@ -245,7 +249,8 @@ const LotofacilProfessional = () => {
             <button onClick={() => setShowQuickCheck(false)} className="text-red-500 font-black px-2 py-1">FECHAR [X]</button>
           </div>
           <div className="flex-1 overflow-y-auto space-y-4 w-full">
-            <CheckerPanel history={history} officialDraw={officialNumbers} playedLotes={playedLotes} />
+            {/* AJUSTE MOBILE: Também filtrado para o modal */}
+            <CheckerPanel history={playedHistoryOnly} officialDraw={officialNumbers} playedLotes={playedLotes} />
             <GameHistory 
                 history={history} setHistory={setHistory} draftGames={draftGames} 
                 playedLotes={playedLotes} togglePlayed={(id) => setPlayedLotes(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
