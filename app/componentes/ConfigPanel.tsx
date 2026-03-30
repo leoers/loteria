@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 interface GameBatch {
   dezenas: number;
@@ -9,6 +9,7 @@ interface GameBatch {
 interface ConfigPanelProps {
   excluded: number[];
   favorites: number[];
+  officialNumbers: number[]; 
   toggleExcluded: (n: number) => void;
   toggleFavorite: (n: number) => void;
   onGenerateAll: (batches: GameBatch[]) => void;
@@ -16,8 +17,9 @@ interface ConfigPanelProps {
 }
 
 export const ConfigPanel = ({
-  excluded,
-  favorites,
+  excluded = [],
+  favorites = [],
+  officialNumbers = [], 
   toggleExcluded,
   toggleFavorite,
   onGenerateAll,
@@ -29,6 +31,13 @@ export const ConfigPanel = ({
 
   const allNumbers = Array.from({ length: 25 }, (_, i) => i + 1);
 
+  // Estatísticas de seleção para a estratégia 12+6
+  const stats = useMemo(() => {
+    const repetidas = favorites?.filter(n => officialNumbers?.includes(n)).length || 0;
+    const novas = favorites?.filter(n => !officialNumbers?.includes(n)).length || 0;
+    return { repetidas, novas };
+  }, [favorites, officialNumbers]);
+
   const addToBatch = () => {
     setBatch([...batch, { dezenas: dezenasPorJogo, qtd: numGames, id: Date.now() }]);
   };
@@ -38,7 +47,6 @@ export const ConfigPanel = ({
   };
 
   return (
-    /* AJUSTE: p-4 no mobile para ganhar espaço, w-full e overflow-hidden para travar o layout */
     <div className="bg-white p-4 md:p-6 rounded-[32px] shadow-sm border border-gray-100 h-full space-y-4 md:space-y-6 w-full max-w-full overflow-hidden box-border">
       <div className="flex justify-between items-center border-b pb-2">
         <h2 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 italic">
@@ -54,8 +62,23 @@ export const ConfigPanel = ({
         )}
       </div>
 
+      {/* PAINEL DE ESTRATÉGIA 12+6 INTERNO */}
+      <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+          <div className="flex flex-col items-center border-r border-slate-200">
+            <span className="text-[7px] font-black text-slate-400 uppercase">Repetidas</span>
+            <span className={`text-sm font-black ${stats.repetidas === 12 ? 'text-emerald-500' : 'text-slate-700'}`}>
+                {stats.repetidas} <span className="text-[9px] text-slate-400">/ 12</span>
+            </span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-[7px] font-black text-slate-400 uppercase">Novas</span>
+            <span className={`text-sm font-black ${stats.novas === 6 ? 'text-blue-500' : 'text-slate-700'}`}>
+                {stats.novas} <span className="text-[9px] text-slate-400">/ 6</span>
+            </span>
+          </div>
+      </div>
+
       {/* 1. SELEÇÃO DE DEZENAS E QTD */}
-      {/* AJUSTE: flex-col no mobile para não esmagar os inputs lado a lado */}
       <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-start">
         <div className="grid grid-cols-3 gap-1.5 flex-1">
           {[15, 16, 17, 18, 19, 20].map(n => (
@@ -115,53 +138,56 @@ export const ConfigPanel = ({
       )}
 
       {/* 3. TECLADOS DE ESTRATÉGIA */}
-      {/* AJUSTE: gap-3 no mobile para evitar transbordo horizontal das 5 colunas */}
       <div className="grid grid-cols-2 gap-3 md:gap-6 pt-2">
-        {/* FAVORITOS */}
         <div className="space-y-2">
           <div className="text-center min-h-[28px] flex flex-col justify-center">
-            <h3 className="text-[9px] md:text-[10px] font-black text-emerald-600 uppercase italic leading-tight">Favoritos ⭐</h3>
-            <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight italic hidden xs:block">Estarão em todos</p>
+            <h3 className="text-[9px] md:text-[10px] font-black text-emerald-600 uppercase italic leading-tight">Escolher 18 ⭐</h3>
+            <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight italic">Azul = Novas | Verde = Repetidas</p>
           </div>
           <div className="grid grid-cols-5 gap-0.5 md:gap-1">
             {allNumbers.map((n) => {
-              const isFav = favorites.includes(n);
-              const isExcl = excluded.includes(n);
+              const isFav = favorites?.includes(n);
+              const isExcl = excluded?.includes(n);
+              const isFromPrevious = officialNumbers?.includes(n);
+              
               return (
                 <button
                   key={n}
                   onClick={() => toggleFavorite(n)}
-                  className={`h-7 md:h-8 rounded-md md:rounded-lg text-[9px] md:text-[10px] font-black border transition-all ${
-                    isFav ? 'bg-emerald-500 text-white border-emerald-600 shadow-md scale-105' : 
-                    'bg-white text-slate-400 border-gray-100'
-                  } ${isExcl ? 'opacity-5 cursor-not-allowed' : ''}`}
+                  className={`h-7 md:h-8 rounded-md md:rounded-lg text-[9px] md:text-[10px] font-black border transition-all relative ${
+                    isFav 
+                      ? (isFromPrevious ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm' : 'bg-blue-500 text-white border-blue-600 shadow-sm') 
+                      : 'bg-white text-slate-400 border-gray-100 hover:border-slate-300'
+                  } ${isExcl ? 'opacity-10 cursor-not-allowed' : 'active:scale-90'}`}
                   disabled={isExcl}
                 >
                   {String(n).padStart(2, '0')}
+                  {isFromPrevious && !isFav && (
+                    <span className="absolute top-0.5 right-0.5 w-1 h-1 bg-emerald-400 rounded-full animate-pulse"></span>
+                  )}
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* EXCLUSÃO */}
         <div className="space-y-2">
           <div className="text-center min-h-[28px] flex flex-col justify-center">
             <h3 className="text-[9px] md:text-[10px] font-black text-red-500 uppercase italic leading-tight">Excluir ✕</h3>
-            <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight italic hidden xs:block">Nunca sorteados</p>
+            <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight italic">Bloqueados</p>
           </div>
           <div className="grid grid-cols-5 gap-0.5 md:gap-1">
             {allNumbers.map((n) => {
-              const isExcluded = excluded.includes(n);
-              const isFav = favorites.includes(n);
+              const isExcluded = excluded?.includes(n);
+              const isFav = favorites?.includes(n);
               return (
                 <button
                   key={n}
                   onClick={() => toggleExcluded(n)}
                   className={`h-7 md:h-8 rounded-md md:rounded-lg text-[9px] md:text-[10px] font-black border transition-all ${
-                    isExcluded ? 'bg-red-500 text-white border-red-600 shadow-md scale-105' : 
-                    'bg-white text-slate-400 border-gray-100'
-                  } ${isFav ? 'opacity-5 cursor-not-allowed' : ''}`}
+                    isExcluded ? 'bg-red-500 text-white border-red-600 shadow-md' : 
+                    'bg-white text-slate-400 border-gray-100 hover:border-slate-300'
+                  } ${isFav ? 'opacity-10 cursor-not-allowed' : 'active:scale-90'}`}
                   disabled={isFav}
                 >
                   {String(n).padStart(2, '0')}
@@ -172,13 +198,12 @@ export const ConfigPanel = ({
         </div>
       </div>
 
-      {/* 4. BOTÃO GERAR */}
       <button
         onClick={() => onGenerateAll(batch)}
         disabled={batch.length === 0}
         className="w-full bg-slate-900 disabled:bg-slate-100 disabled:text-slate-400 text-white py-4 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest transition-all shadow-xl active:scale-95 border-b-4 border-slate-800"
       >
-        Gerar {batch.reduce((acc, curr) => acc + curr.qtd, 0)} Jogos
+        Gerar {batch.reduce((acc, curr) => acc + (curr.qtd || 0), 0)} Jogos
       </button>
     </div>
   );

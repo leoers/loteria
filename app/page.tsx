@@ -33,11 +33,25 @@ const LotofacilProfessional = () => {
 
   const allNumbers = Array.from({ length: 25 }, (_, i) => i + 1);
 
-  // --- NOVO FILTRO PARA O CONFERIDOR ---
-  // Filtra o histórico para mostrar no CheckerPanel apenas o que foi favoritado (marcado como jogado)
+  // --- LÓGICA DE DADOS FILTRADOS ---
+  const officialNumbers = useMemo(() => {
+    if (lastDraws?.length > 0) {
+      const latest = lastDraws[0];
+      const nums = latest.dezenas || latest.numbers || [];
+      return nums.map(Number).sort((a: number, b: number) => a - b);
+    }
+    return [];
+  }, [lastDraws]);
+
   const playedHistoryOnly = useMemo(() => {
     return history.filter(lote => playedLotes.includes(lote.id));
   }, [history, playedLotes]);
+
+  const strategyStats = useMemo(() => {
+    const repetidas = favorites.filter(n => officialNumbers.includes(n)).length;
+    const novas = favorites.filter(n => !officialNumbers.includes(n)).length;
+    return { repetidas, novas };
+  }, [favorites, officialNumbers]);
 
   const generateGameLogic = (dezenas: number, forceRandomizeFromFavorites: boolean) => {
     const poolParaCompletar = allNumbers.filter(n => !excluded.includes(n) && !favorites.includes(n));
@@ -53,6 +67,35 @@ const LotofacilProfessional = () => {
     const needed = dezenas - favorites.length;
     const randomized = [...poolParaCompletar].sort(() => 0.5 - Math.random()).slice(0, needed);
     return [...favorites, ...randomized].sort((a, b) => a - b);
+  };
+
+  const handleGenerateBatches = (batches: GameBatch[]) => {
+    const newDrafts: DraftGame[] = [];
+    const usageCount: Record<number, number> = {};
+    favorites.forEach(n => usageCount[n] = 0);
+
+    batches.forEach(batch => {
+      for (let i = 0; i < batch.qtd; i++) {
+        let gameNumbers: number[] = [];
+        if (favorites.length >= batch.dezenas) {
+          const balancedSet = [...favorites].sort((a, b) => {
+            if (usageCount[a] !== usageCount[b]) return usageCount[a] - usageCount[b];
+            return Math.random() - 0.5;
+          });
+          gameNumbers = balancedSet.slice(0, batch.dezenas).sort((a, b) => a - b);
+          gameNumbers.forEach(n => usageCount[n]++);
+        } else {
+          gameNumbers = generateGameLogic(batch.dezenas, true);
+        }
+        newDrafts.push({
+          id: `${Date.now()}-${Math.random()}`,
+          dezenas: batch.dezenas,
+          numbers: gameNumbers
+        });
+      }
+    });
+    setDraftGames(newDrafts);
+    if (typeof window !== 'undefined' && window.innerWidth < 768) setActiveStep(3);
   };
 
   const downloadPDF = (item: any) => {
@@ -88,21 +131,6 @@ const LotofacilProfessional = () => {
   const toggleFavorite = (n: number) => {
     if (excluded.includes(n)) setExcluded(prev => prev.filter(x => x !== n));
     setFavorites(prev => prev.includes(n) ? prev.filter(x => x !== n) : [...prev, n]);
-  };
-
-  const handleGenerateBatches = (batches: GameBatch[]) => {
-    const newDrafts: DraftGame[] = [];
-    batches.forEach(batch => {
-      for (let i = 0; i < batch.qtd; i++) {
-        newDrafts.push({
-          id: `${Date.now()}-${Math.random()}`,
-          dezenas: batch.dezenas,
-          numbers: generateGameLogic(batch.dezenas, batch.qtd > 1)
-        });
-      }
-    });
-    setDraftGames(newDrafts);
-    if (typeof window !== 'undefined' && window.innerWidth < 768) setActiveStep(3);
   };
 
   const finalizeAndSaveLote = () => {
@@ -147,15 +175,6 @@ const LotofacilProfessional = () => {
 
   const totalCost = useMemo(() => draftGames.reduce((acc, game) => acc + (LOTOFACIL_PRICES[game.dezenas] || 0), 0), [draftGames]);
 
-  const officialNumbers = useMemo(() => {
-    if (lastDraws?.length > 0) {
-      const latest = lastDraws[0];
-      const nums = latest.dezenas || latest.numbers || [];
-      return nums.map(Number).sort((a: number, b: number) => a - b);
-    }
-    return [];
-  }, [lastDraws]);
-
   const currentStats = useMemo(() => {
     const dezenasBase = draftGames[0]?.dezenas || 15;
     return {
@@ -196,7 +215,37 @@ const LotofacilProfessional = () => {
         </div>
 
         <div className={`${activeStep === 2 ? 'block' : 'hidden md:block'} w-full overflow-hidden`}>
-          <ConfigPanel excluded={excluded} favorites={favorites} toggleExcluded={toggleExcluded} toggleFavorite={toggleFavorite} onGenerateAll={handleGenerateBatches} onClear={() => {setFavorites([]); setExcluded([]);}} />
+          {/* Painel Estratégico Resumido */}
+          <div className="flex justify-between items-center bg-slate-900 p-4 rounded-3xl mb-4 border border-white/5">
+             <div className="flex flex-col">
+                <span className="text-[8px] text-slate-500 font-black uppercase mb-1">Repetidas (Anterior)</span>
+                <div className="flex items-center gap-1.5">
+                   <span className={`text-lg font-black ${strategyStats.repetidas === 12 ? 'text-emerald-400' : 'text-white'}`}>{strategyStats.repetidas}</span>
+                   <span className="text-slate-600 text-xs font-bold">/ 12</span>
+                </div>
+             </div>
+             <div className="flex flex-col border-l border-white/10 pl-4">
+                <span className="text-[8px] text-slate-500 font-black uppercase mb-1">Novas (Atrasadas)</span>
+                <div className="flex items-center gap-1.5">
+                   <span className={`text-lg font-black ${strategyStats.novas === 6 ? 'text-blue-400' : 'text-white'}`}>{strategyStats.novas}</span>
+                   <span className="text-slate-600 text-xs font-bold">/ 6</span>
+                </div>
+             </div>
+             <div className="bg-white/5 px-3 py-2 rounded-xl text-center">
+                <span className="block text-[8px] text-slate-500 font-black uppercase">Universo</span>
+                <span className="text-xs font-black text-white">{favorites.length} dezenas</span>
+             </div>
+          </div>
+
+          <ConfigPanel 
+            excluded={excluded} 
+            favorites={favorites} 
+            officialNumbers={officialNumbers} // Propriedade adicionada para corrigir o erro
+            toggleExcluded={toggleExcluded} 
+            toggleFavorite={toggleFavorite} 
+            onGenerateAll={handleGenerateBatches} 
+            onClear={() => {setFavorites([]); setExcluded([]);}} 
+          />
         </div>
 
         <div className={`${activeStep === 3 ? 'block' : 'hidden md:block'} w-full overflow-hidden`}>
@@ -230,10 +279,7 @@ const LotofacilProfessional = () => {
         </div>
 
         <div className="hidden md:flex flex-col gap-4 max-h-[calc(100vh-250px)] overflow-y-auto w-full">
-          {/* AJUSTE: CheckerPanel agora recebe apenas os favoritados (playedHistoryOnly) */}
           <CheckerPanel history={playedHistoryOnly} officialDraw={officialNumbers} playedLotes={playedLotes} />
-          
-          {/* GameHistory continua mostrando tudo (history completo) */}
           <GameHistory history={history} setHistory={setHistory} draftGames={draftGames} playedLotes={playedLotes} togglePlayed={(id) => setPlayedLotes(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} onDelete={(id) => setHistory(prev => prev.filter(g => g.id !== id))} onDownloadPDF={downloadPDF} />
         </div>
       </div>
@@ -249,7 +295,6 @@ const LotofacilProfessional = () => {
             <button onClick={() => setShowQuickCheck(false)} className="text-red-500 font-black px-2 py-1">FECHAR [X]</button>
           </div>
           <div className="flex-1 overflow-y-auto space-y-4 w-full">
-            {/* AJUSTE MOBILE: Também filtrado para o modal */}
             <CheckerPanel history={playedHistoryOnly} officialDraw={officialNumbers} playedLotes={playedLotes} />
             <GameHistory 
                 history={history} setHistory={setHistory} draftGames={draftGames} 
